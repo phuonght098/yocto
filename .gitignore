@@ -1,0 +1,14 @@
+# Yocto build output
+poky/build/
+poky/build-*/
+poky/tmp/
+poky/downloads/
+poky/sstate-cache/
+poky/cache/
+
+# Editor / OS files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
