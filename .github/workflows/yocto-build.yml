@@ -1,0 +1,154 @@
+name: Yocto Raspberry Pi 4 Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Show runner information
+        run: |
+          echo "===== CPU ====="
+          nproc
+
+          echo "===== RAM ====="
+          free -h
+
+          echo "===== DISK ====="
+          df -h
+
+      - name: Install Yocto dependencies
+        run: |
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            build-essential \
+            chrpath \
+            cpio \
+            debianutils \
+            diffstat \
+            file \
+            gawk \
+            gcc \
+            git \
+            iputils-ping \
+            libacl1 \
+            liblz4-tool \
+            locales \
+            python3 \
+            python3-git \
+            python3-jinja2 \
+            python3-pexpect \
+            python3-pip \
+            python3-subunit \
+            socat \
+            texinfo \
+            unzip \
+            wget \
+            xz-utils \
+            zstd
+
+      - name: Configure locale
+        run: |
+          sudo sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen
+          sudo locale-gen
+          locale -a | grep -i en_US
+
+      - name: Initialize Yocto build environment
+        working-directory: poky
+        run: |
+          source oe-init-build-env build-2
+
+          echo "===== Yocto version ====="
+          bitbake --version
+
+      - name: Configure BBLAYERS
+        working-directory: poky
+        run: |
+          source oe-init-build-env build-2
+
+          cat > conf/bblayers.conf <<'EOF'
+          POKY_BBLAYERS_CONF_VERSION = "2"
+
+          BBPATH = "${TOPDIR}"
+          BBFILES ?= ""
+
+          BBLAYERS ?= " \
+            ${TOPDIR}/../meta \
+            ${TOPDIR}/../meta-poky \
+            ${TOPDIR}/../meta-yocto-bsp \
+            ${TOPDIR}/../meta-raspberrypi \
+            ${TOPDIR}/../meta-openembedded/meta-oe \
+            ${TOPDIR}/../meta-openembedded/meta-python \
+            ${TOPDIR}/../meta-openembedded/meta-networking \
+            ${TOPDIR}/../meta-rauc \
+          "
+          EOF
+
+      - name: Configure local.conf
+        working-directory: poky
+        run: |
+          source oe-init-build-env build-2
+
+          cat >> conf/local.conf <<'EOF'
+
+          MACHINE = "raspberrypi4-64"
+          DISTRO ?= "poky"
+
+          EXTRA_IMAGE_FEATURES ?= "debug-tweaks"
+
+          LICENSE_FLAGS_ACCEPTED += "synaptics-killswitch"
+
+          DISTRO_FEATURES:append = " rauc"
+
+          BB_NUMBER_THREADS = "4"
+          PARALLEL_MAKE = "-j 4"
+
+          EOF
+
+      - name: Check Yocto configuration
+        working-directory: poky
+        run: |
+          source oe-init-build-env build-2
+
+          echo "===== MACHINE ====="
+          grep '^MACHINE' conf/local.conf
+
+          echo "===== DISTRO ====="
+          grep '^DISTRO' conf/local.conf
+
+          echo "===== LAYERS ====="
+          bitbake-layers show-layers
+
+      - name: Build core-image-minimal
+        working-directory: poky
+        run: |
+          source oe-init-build-env build-2
+          bitbake core-image-minimal
+
+      - name: Show build output
+        if: always()
+        working-directory: poky
+        run: |
+          echo "===== Disk usage ====="
+          df -h
+
+          echo "===== Deploy files ====="
+          find build-2/tmp/deploy/images/raspberrypi4-64 \
+            -maxdepth 1 \
+            -type f \
+            -printf '%f\n' \
+            2>/dev/null || true
+
+      - name: Upload Raspberry Pi image
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raspberrypi4-64-image
+          path: poky/build-2/tmp/deploy/images/raspberrypi4-64/
+          retention-days: 7
