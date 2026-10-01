@@ -1,3 +1,4 @@
+```yaml
 name: Yocto Raspberry Pi 4 Build
 
 on:
@@ -56,8 +57,34 @@ jobs:
       - name: Configure locale
         run: |
           sudo sed -i '/en_US.UTF-8/s/^# //' /etc/locale.gen
-          sudo locale-gen
-          locale -a | grep -i en_US
+          sudo locale-gen en_US.UTF-8
+
+          echo "LANG=en_US.UTF-8" >> "$GITHUB_ENV"
+          echo "LC_ALL=en_US.UTF-8" >> "$GITHUB_ENV"
+
+          locale
+
+      - name: Clone Yocto layers
+        run: |
+          git clone --depth 1 https://github.com/agherzan/meta-raspberrypi.git \
+            poky/meta-raspberrypi
+
+          git clone --depth 1 https://github.com/openembedded/meta-openembedded.git \
+            poky/meta-openembedded
+
+          git clone --depth 1 https://github.com/rauc/meta-rauc.git \
+            poky/meta-rauc
+
+      - name: Show cloned layers
+        run: |
+          echo "===== meta-raspberrypi ====="
+          git -C poky/meta-raspberrypi rev-parse --short HEAD
+
+          echo "===== meta-openembedded ====="
+          git -C poky/meta-openembedded rev-parse --short HEAD
+
+          echo "===== meta-rauc ====="
+          git -C poky/meta-rauc rev-parse --short HEAD
 
       - name: Initialize Yocto build environment
         working-directory: poky
@@ -152,3 +179,4 @@ jobs:
           name: raspberrypi4-64-image
           path: poky/build-2/tmp/deploy/images/raspberrypi4-64/
           retention-days: 7
+```
