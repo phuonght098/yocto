@@ -1,4 +1,4 @@
-```yaml
+
 name: Yocto Raspberry Pi 4 Build
 
 on:
