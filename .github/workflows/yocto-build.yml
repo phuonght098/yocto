@@ -179,4 +179,3 @@ jobs:
           name: raspberrypi4-64-image
           path: poky/build-2/tmp/deploy/images/raspberrypi4-64/
           retention-days: 7
-```
